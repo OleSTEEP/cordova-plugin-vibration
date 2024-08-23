@@ -23,6 +23,9 @@ import org.apache.cordova.CordovaPlugin;
 import org.json.JSONArray;
 import org.json.JSONException;
 import android.content.Context;
+import android.media.AudioAttributes;
+import android.os.Build;
+import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.media.AudioManager;
 
@@ -46,25 +49,26 @@ public class Vibration extends CordovaPlugin {
      * @return                  True when the action was valid, false otherwise.
      */
     public boolean execute(String action, JSONArray args, CallbackContext callbackContext) throws JSONException {
-        if (action.equals("vibrate")) {
-            this.vibrate(args.getLong(0));
-        }
-        else if (action.equals("vibrateWithPattern")) {
-            JSONArray pattern = args.getJSONArray(0);
-            int repeat = args.getInt(1);
-            //add a 0 at the beginning of pattern to align with w3c
-            long[] patternArray = new long[pattern.length()+1];
-            patternArray[0] = 0;
-            for (int i = 0; i < pattern.length(); i++) {
-                patternArray[i+1] = pattern.getLong(i);
-            }
-            this.vibrateWithPattern(patternArray, repeat);
-        }
-        else if (action.equals("cancelVibration")) {
-            this.cancelVibration();
-        }
-        else {
-            return false;
+        switch (action) {
+            case "vibrate":
+                this.vibrate(args.getLong(0));
+                break;
+            case "vibrateWithPattern":
+                JSONArray pattern = args.getJSONArray(0);
+                int repeat = args.getInt(1);
+                //add a 0 at the beginning of pattern to align with w3c
+                long[] patternArray = new long[pattern.length() + 1];
+                patternArray[0] = 0;
+                for (int i = 0; i < pattern.length(); i++) {
+                    patternArray[i + 1] = pattern.getLong(i);
+                }
+                this.vibrateWithPattern(patternArray, repeat);
+                break;
+            case "cancelVibration":
+                this.cancelVibration();
+                break;
+            default:
+                return false;
         }
 
         // Only alert and confirm are async.
@@ -90,7 +94,18 @@ public class Vibration extends CordovaPlugin {
         AudioManager manager = (AudioManager) this.cordova.getActivity().getSystemService(Context.AUDIO_SERVICE);
         if (manager.getRingerMode() != AudioManager.RINGER_MODE_SILENT) {
             Vibrator vibrator = (Vibrator) this.cordova.getActivity().getSystemService(Context.VIBRATOR_SERVICE);
-            vibrator.vibrate(time);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                vibrator.vibrate(
+                        VibrationEffect.createOneShot(time, VibrationEffect.DEFAULT_AMPLITUDE),
+                        new AudioAttributes.Builder()
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .build()
+                );
+            } else {
+                //deprecated in API 26
+                vibrator.vibrate(time);
+            }
         }
     }
 
@@ -119,7 +134,18 @@ public class Vibration extends CordovaPlugin {
         AudioManager manager = (AudioManager) this.cordova.getActivity().getSystemService(Context.AUDIO_SERVICE);
         if (manager.getRingerMode() != AudioManager.RINGER_MODE_SILENT) {
             Vibrator vibrator = (Vibrator) this.cordova.getActivity().getSystemService(Context.VIBRATOR_SERVICE);
-            vibrator.vibrate(pattern, repeat);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                vibrator.vibrate(
+                        VibrationEffect.createWaveform(pattern, repeat),
+                        new AudioAttributes.Builder()
+                                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                                .setUsage(AudioAttributes.USAGE_ALARM)
+                                .build()
+                );
+            } else {
+                //deprecated in API 26
+                vibrator.vibrate(pattern, repeat);
+            }
         }
     }
 
